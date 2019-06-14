@@ -39,7 +39,7 @@ Airflow can be found at http://127.0.0.1:8081.
 Currently the scheduler needs to started manually by running the following:
 
 ```
-docker exec -it ajibd_airflow_1 /bin/bash```
+docker exec -it ajibd_airflow_1 /bin/bash
 airflow scheduler
 ```
 
@@ -56,9 +56,9 @@ DOCKER_GROUP_ID=$(stat -c '%g' /var/run/docker.sock) &&  \
 
 * Healthchecks on each service
 * A default dashboard for Superset
-* A default DAG for Airflow
-* Run application once Spark cluster, Source & Presentation DB's are up & healthy
+* A default DAG for Airflow with the DockerOperator
 
 ### Bonus Points
 
 * Get the Airflow scheduler running without having to execute manually
+* A Second DAG to try the TriggerDagRunOperator

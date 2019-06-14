@@ -2,16 +2,16 @@ version: "3.3"
 services:
   spark-master:
     image: ls12styler/spark:latest
-    container_name: ajibd-spark-master
-    hostname: spark-master
     ports:
       - "8080:8080"
       - "7077:7077"
     environment:
-      - "SPARK_LOCAL_IP=ajibd-spark-master"
+      - "SPARK_LOCAL_IP=spark-master"
       - "SPARK_MASTER_PORT=7077"
       - "SPARK_MASTER_WEBUI_PORT=8080"
     entrypoint: "/start-master.sh"
+    networks:
+      - ajibd-network
   spark-worker:
     image: ls12styler/spark:latest
     depends_on:
@@ -19,22 +19,26 @@ services:
     ports:
       - 8080
     environment:
-      - "SPARK_MASTER=spark://ajibd-spark-master:7077"
+      - "SPARK_MASTER=spark://spark-master:7077"
       - "SPARK_WORKER_WEBUI_PORT=8080"
     entrypoint: "/start-worker.sh"
     volumes:
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/data:/local
+      - ./data:/local
+    networks:
+      - ajibd-network
   source-db:
     image: mysql:5
     volumes:
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/data:/local
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/mysql/scripts/source:/docker-entrypoint-initdb.d
+      - ./data:/local
+      - ./mysql/scripts/source:/docker-entrypoint-initdb.d
     environment:
       - "MYSQL_DATABASE=source"
       - "MYSQL_USER=source"
       - "MYSQL_PASSWORD=source"
       - "MYSQL_ROOT_PASSWORD=asdfgasdasf"
     command: "--secure-file-priv=/local"
+    networks:
+      - ajibd-network
   warehouse-db:
     image: mysql:5
     environment:
@@ -43,25 +47,24 @@ services:
       - "MYSQL_PASSWORD=warehouse"
       - "MYSQL_ROOT_PASSWORD=asdfgasdasf"
     volumes:
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/data:/local
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/mysql/scripts/warehouse:/docker-entrypoint-initdb.d
+      - ./data:/local
+      - ./mysql/scripts/warehouse:/docker-entrypoint-initdb.d
+    networks:
+      - ajibd-network
   airflow:
     image: puckel/docker-airflow:latest
     command: "webserver"
-    depends_on:
-      - spark-worker
-      - spark-master
-      - source-db
-      - warehouse-db
-      - presentation-db
     ports:
       - "8081:8081"
     environment:
       - AIRFLOW__WEBUI__PORT=8081
+      - LOAD_EX=y
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/airflow/dags:/usr/local/airflow/dags
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/airflow/requirements.txt:/requirements.txt
+      - ./airflow/dags:/usr/local/airflow/dags
+      - ./airflow/requirements.txt:/requirements.txt
+    networks:
+      - ajibd-network
   superset:
     image: amancevice/superset
     command: bash -c "superset-init --username admin --password admin --firstname user --lastname user --email admin@admin.org && gunicorn superset:app"
@@ -73,7 +76,9 @@ services:
     ports:
       - "8088:8088"
     volumes:
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/superset:/etc/superset/
+      - ./superset:/etc/superset/
+    networks:
+      - ajibd-network
   presentation-db:
     image: mysql:5
     environment:
@@ -82,4 +87,14 @@ services:
       - "MYSQL_PASSWORD=presentation"
       - "MYSQL_ROOT_PASSWORD=asdfgasdasf"
     volumes:
-      - /Users/broadlea/workspace/src/github.com/ls12styler/ajibd/mysql/scripts/presentation:/docker-entrypoint-initdb.d
+        - ./mysql/scripts/presentation:/docker-entrypoint-initdb.d
+    networks:
+      - ajibd-network
+
+networks:
+  ajibd-network:
+    driver: bridge
+    ipam:
+      driver: default
+
+## https://github.com/mdmccarthyuk/minihadoop
